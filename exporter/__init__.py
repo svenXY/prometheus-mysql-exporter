@@ -52,7 +52,7 @@ def update_gauges(metrics):
 
         gauges[metric_name] = (new_label_values_set, gauge)
 
-def run_scheduler(scheduler, mysql_client, name, interval, query, value_columns):
+def run_scheduler(scheduler, mysql_client, db, name, interval, query, value_columns):
     def scheduled_run(scheduled_time):
         try:
             cursor = mysql_client.cursor()
@@ -65,7 +65,7 @@ def run_scheduler(scheduler, mysql_client, name, interval, query, value_columns)
             columns = [column[0] for column in cursor.description]
             response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
 
-            metrics = parse_response(value_columns, response, [name])
+            metrics = parse_response(value_columns, response, [name], {'db': db})
             update_gauges(metrics)
         finally:
             cursor.close()
@@ -88,12 +88,14 @@ def run_scheduler(scheduler, mysql_client, name, interval, query, value_columns)
 
 def main():
     parser = argparse.ArgumentParser(description='Export MySQL query results to Prometheus.')
-    parser.add_argument('-s', '--mysql-server', default='localhost',
-        help='address of a MySQL server to run queries on. A port can be provided if non-standard (3306) e.g. mysql:3333 (default: localhost)')
     parser.add_argument('-p', '--port', type=int, default=8080,
         help='port to serve the metrics endpoint on. (default: 8080)')
     parser.add_argument('-c', '--config-file', default='exporter.cfg',
         help='path to query config file. Can be absolute, or relative to the current working directory. (default: exporter.cfg)')
+    parser.add_argument('-s', '--mysql-server', default='localhost',
+        help='address of a MySQL server to run queries on. A port can be provided if non-standard (3306) e.g. mysql:3333 (default: localhost)')
+    parser.add_argument('-d', '--mysql-databases',
+        help='databases to run queries on. Database names should be separated by commas e.g. db1,db2.')
     parser.add_argument('-u', '--mysql-user', default='root',
         help='MySQL user to run queries as. (default: root)')
     parser.add_argument('-P', '--mysql-password', default='',
@@ -106,6 +108,8 @@ def main():
     else:
         mysql_host = args.mysql_server
         mysql_port = 3306
+
+    dbs = args.mysql_databases.split(',')
 
     username = args.mysql_user
     password = args.mysql_password
@@ -131,13 +135,15 @@ def main():
     print('Server started on port {}'.format(port))
 
     for name, (interval, query, value_columns) in queries.items():
-        mysql_client = MySQLdb.connect(
-            host = mysql_host,
-            port = mysql_port,
-            user = username,
-            passwd = password,
-        )
-        run_scheduler(scheduler, mysql_client, name, interval, query, value_columns)
+        for db in dbs:
+            mysql_client = MySQLdb.connect(
+                host = mysql_host,
+                port = mysql_port,
+                user = username,
+                passwd = password,
+                db = db,
+            )
+            run_scheduler(scheduler, mysql_client, db, name, interval, query, value_columns)
 
     try:
         scheduler.run()
