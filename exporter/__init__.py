@@ -65,7 +65,7 @@ def run_scheduler(scheduler, mysql_client, db, name, interval, query, value_colu
             columns = [column[0] for column in cursor.description]
             response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
 
-            metrics = parse_response(value_columns, response, [name], {'db': db})
+            metrics = parse_response(value_columns, response, [name], {'db': [db]})
             update_gauges(metrics)
         finally:
             cursor.close()
