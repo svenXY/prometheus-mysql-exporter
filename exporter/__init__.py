@@ -140,6 +140,7 @@ def main():
                 user = username,
                 passwd = password,
                 db = db,
+                autocommit = True,
             )
             run_scheduler(scheduler, mysql_client, db, name, interval, query, value_columns)
 
