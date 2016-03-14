@@ -94,7 +94,7 @@ def main():
         help='path to query config file. Can be absolute, or relative to the current working directory. (default: exporter.cfg)')
     parser.add_argument('-s', '--mysql-server', default='localhost',
         help='address of a MySQL server to run queries on. A port can be provided if non-standard (3306) e.g. mysql:3333 (default: localhost)')
-    parser.add_argument('-d', '--mysql-databases',
+    parser.add_argument('-d', '--mysql-databases', required=True,
         help='databases to run queries on. Database names should be separated by commas e.g. db1,db2.')
     parser.add_argument('-u', '--mysql-user', default='root',
         help='MySQL user to run queries as. (default: root)')
