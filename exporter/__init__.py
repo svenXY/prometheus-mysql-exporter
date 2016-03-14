@@ -54,21 +54,19 @@ def update_gauges(metrics):
 
 def run_scheduler(scheduler, mysql_client, db, name, interval, query, value_columns):
     def scheduled_run(scheduled_time):
-        try:
-            cursor = mysql_client.cursor()
-            cursor.execute(query)
-            raw_response = cursor.fetchall()
-        except Exception as ex:
-            print('Error: ' + str(ex))
-            pass
-        else:
-            columns = [column[0] for column in cursor.description]
-            response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
+        with mysql_client.cursor() as cursor:
+            try:
+                cursor.execute(query)
+                raw_response = cursor.fetchall()
+            except Exception as ex:
+                print('Error: ' + str(ex))
+                pass
+            else:
+                columns = [column[0] for column in cursor.description]
+                response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
 
-            metrics = parse_response(value_columns, response, [name], {'db': [db]})
-            update_gauges(metrics)
-        finally:
-            cursor.close()
+                metrics = parse_response(value_columns, response, [name], {'db': [db]})
+                update_gauges(metrics)
 
         next_scheduled_time = scheduled_time + interval
         scheduler.enterabs(
