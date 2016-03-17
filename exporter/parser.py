@@ -1,3 +1,5 @@
+from numbers import Number
+
 def parse_response(value_columns, response, metric=[], labels={}):
     result = []
 
@@ -6,6 +8,8 @@ def parse_response(value_columns, response, metric=[], labels={}):
       final_labels = labels.copy()
       final_labels.update(result_labels)
       for value_column in value_columns:
-        result.append((metric + [value_column], final_labels, row[value_column]))
+        value = row[value_column]
+        if isinstance(value, Number):
+          result.append((metric + [value_column], final_labels, value))
 
     return result
