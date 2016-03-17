@@ -58,14 +58,15 @@ def run_scheduler(scheduler, mysql_client, db, name, interval, query, value_colu
             try:
                 cursor.execute(query)
                 raw_response = cursor.fetchall()
-            except Exception as ex:
-                print('Error: ' + str(ex))
-                pass
-            else:
+
                 columns = [column[0] for column in cursor.description]
                 response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
 
                 metrics = parse_response(value_columns, response, [name], {'db': [db]})
+            except Exception as ex:
+                print('Error: ' + str(ex))
+                pass
+            else:
                 update_gauges(metrics)
 
         next_scheduled_time = scheduled_time + interval
