@@ -52,22 +52,28 @@ def update_gauges(metrics):
 
         gauges[metric_name] = (new_label_values_set, gauge)
 
-def run_scheduler(scheduler, mysql_client, db, name, interval, query, value_columns):
+def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns):
     def scheduled_run(scheduled_time):
-        with mysql_client.cursor() as cursor:
-            try:
-                cursor.execute(query)
-                raw_response = cursor.fetchall()
+        all_metrics = []
 
-                columns = [column[0] for column in cursor.description]
-                response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
+        for db in dbs:
+          mysql_client.select_db(db)
+          with mysql_client.cursor() as cursor:
+              try:
+                  cursor.execute(query)
+                  raw_response = cursor.fetchall()
 
-                metrics = parse_response(value_columns, response, [name], {'db': [db]})
-            except Exception as ex:
-                print('Error: ' + str(ex))
-                pass
-            else:
-                update_gauges(metrics)
+                  columns = [column[0] for column in cursor.description]
+                  response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
+
+                  metrics = parse_response(value_columns, response, [name], {'db': [db]})
+              except Exception as ex:
+                  print('Error: ' + str(ex))
+                  pass
+              else:
+                  all_metrics += metrics
+
+        update_gauges(all_metrics)
 
         next_scheduled_time = scheduled_time + interval
         scheduler.enterabs(
@@ -134,16 +140,14 @@ def main():
     print('Server started on port {}'.format(port))
 
     for name, (interval, query, value_columns) in queries.items():
-        for db in dbs:
-            mysql_client = MySQLdb.connect(
-                host = mysql_host,
-                port = mysql_port,
-                user = username,
-                passwd = password,
-                db = db,
-                autocommit = True,
-            )
-            run_scheduler(scheduler, mysql_client, db, name, interval, query, value_columns)
+        mysql_client = MySQLdb.connect(
+            host = mysql_host,
+            port = mysql_port,
+            user = username,
+            passwd = password,
+            autocommit = True,
+        )
+        run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns)
 
     try:
         scheduler.run()
