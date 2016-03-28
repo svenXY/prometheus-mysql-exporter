@@ -14,9 +14,9 @@ Note that you may need to add the start script location (see pip output) to your
 # Usage
 Once installed, you can run the exporter with the `prometheus-mysql-exporter` command.
 
-By default, it will bind to port 8080, query MySQL on `localhost:3306` using the `root` user (with no password) and run queries configured in a file `exporter.cfg` in the working directory. You can change these defaults as required by passing in options:
+By default, it will bind to port 8080, query MySQL on `localhost:3306` using the `root` user (with no password) and run queries configured in a file `exporter.cfg` in the working directory. There is no default database to run the queries on, so you must specify at least one. You can set the database(s) and change any defaults as required by passing in options:
 ```
-> prometheus-mysql-exporter -p <port> -s <mysql server> -u <mysql username> -P <mysql password> -c <path to query config file>
+> prometheus-mysql-exporter -p <port> -s <mysql server> -u <mysql username> -P <mysql password> -c <path to query config file> -d <mysql database(s)>
 ```
 Run with the `-h` flag to see details on all the available options.
 
@@ -32,7 +32,7 @@ To run a container successfully, you will need to mount a query config file to `
 > sudo docker run --rm --name exporter \
     -v <path to query config file>:/usr/src/app/exporter.cfg \
     -p 8080:8080 \
-    prometheus-mysql-exporter -s <mysql server>
+    prometheus-mysql-exporter -s <mysql server> -d <mysql database(s)>
 ```
 You can change other options in the same way as `-s`. For example, you could change where the query config file is read from using `-c`.
 
