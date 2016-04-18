@@ -57,21 +57,21 @@ def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_col
         all_metrics = []
 
         for db in dbs:
-          mysql_client.select_db(db)
-          with mysql_client.cursor() as cursor:
-              try:
-                  cursor.execute(query)
-                  raw_response = cursor.fetchall()
+            mysql_client.select_db(db)
+            with mysql_client.cursor() as cursor:
+                try:
+                    cursor.execute(query)
+                    raw_response = cursor.fetchall()
 
-                  columns = [column[0] for column in cursor.description]
-                  response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
+                    columns = [column[0] for column in cursor.description]
+                    response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
 
-                  metrics = parse_response(value_columns, response, [name], {'db': [db]})
-              except Exception as ex:
-                  print('Error: ' + str(ex))
-                  pass
-              else:
-                  all_metrics += metrics
+                    metrics = parse_response(value_columns, response, [name], {'db': [db]})
+                except Exception as ex:
+                    print('Error: ' + str(ex))
+                    pass
+                else:
+                    all_metrics += metrics
 
         update_gauges(all_metrics)
 
