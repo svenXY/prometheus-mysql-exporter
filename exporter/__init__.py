@@ -75,7 +75,11 @@ def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_col
 
         update_gauges(all_metrics)
 
+        current_time = time.monotonic()
         next_scheduled_time = scheduled_time + interval
+        while next_scheduled_time < current_time:
+            next_scheduled_time += interval
+
         scheduler.enterabs(
             next_scheduled_time,
             1,
