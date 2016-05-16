@@ -25,7 +25,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'prometheus-mysql-exporter=exporter:main',
+            'prometheus-mysql-exporter=prometheus_mysql_exporter:main',
         ],
     },
 )

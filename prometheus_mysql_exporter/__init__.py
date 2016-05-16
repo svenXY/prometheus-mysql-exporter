@@ -8,7 +8,7 @@ import MySQLdb
 
 from prometheus_client import start_http_server, Gauge
 
-from exporter.parser import parse_response
+from prometheus_mysql_exporter.parser import parse_response
 
 gauges = {}
 

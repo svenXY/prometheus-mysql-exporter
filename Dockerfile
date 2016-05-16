@@ -9,7 +9,7 @@ rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
-COPY exporter/*.py /usr/src/app/exporter/
+COPY prometheus_mysql_exporter/*.py /usr/src/app/prometheus_mysql_exporter/
 COPY setup.py /usr/src/app/
 COPY LICENSE /usr/src/app/
 
