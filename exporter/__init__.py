@@ -1,6 +1,7 @@
 import argparse
 import configparser
 import json
+import logging
 import sched
 import time
 import MySQLdb
@@ -67,9 +68,8 @@ def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_col
                     response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
 
                     metrics = parse_response(value_columns, response, [name], {'db': [db]})
-                except Exception as ex:
-                    print('Error: ' + str(ex))
-                    pass
+                except Exception:
+                    logging.exception('Error while querying indices [%s], query [%s].', indices, query)
                 else:
                     all_metrics += metrics
 
@@ -109,7 +109,15 @@ def main():
         help='MySQL user to run queries as. (default: root)')
     parser.add_argument('-P', '--mysql-password', default='',
         help='password for the MySQL user, if required. (default: no password)')
+    parser.add_argument('-v', '--verbose', action='store_true',
+        help='turn on verbose logging.')
     args = parser.parse_args()
+
+    logging.basicConfig(
+        format='[%(asctime)s] %(name)s.%(levelname)s %(threadName)s %(message)s',
+        level=logging.DEBUG if args.verbose else logging.INFO
+    )
+    logging.captureWarnings(True)
 
     port = args.port
     if ':' in args.mysql_server:
@@ -139,9 +147,9 @@ def main():
 
     scheduler = sched.scheduler()
 
-    print('Starting server...')
+    logging.info('Starting server...')
     start_http_server(port)
-    print('Server started on port {}'.format(port))
+    logging.info('Server started on port %s', port)
 
     for name, (interval, query, value_columns) in queries.items():
         mysql_client = MySQLdb.connect(
@@ -158,4 +166,4 @@ def main():
     except KeyboardInterrupt:
         pass
 
-    print('Shutting down')
+    logging.info('Shutting down')
