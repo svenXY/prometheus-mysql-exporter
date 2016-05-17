@@ -3,11 +3,11 @@ Prometheus MySQL Exporter
 This Prometheus exporter periodically runs configured queries against a MySQL database and exports the results as Prometheus gauge metrics.
 
 # Installation
-You will need Python 3, pip 3, and libmysqlclient-dev installed to run the exporter.
+The exporter requires Python 3, Pip 3 and libmysqlclient-dev to be installed.
 
-Run the following in the root project directory to install (i.e. download dependencies, create start script):
+To install the latest published version via Pip, run:
 ```
-> pip3 install .
+> pip3 install prometheus-mysql-exporter
 ```
 Note that you may need to add the start script location (see pip output) to your `PATH`.
 
@@ -23,25 +23,30 @@ Run with the `-h` flag to see details on all the available options.
 See the provided `exporter.cfg` file for query configuration examples and explanation.
 
 # Docker
-You can build a docker image using the provided Dockerfile. Run the following in the root project directory:
+Docker images for released versions can be found on Docker Hub (note that no `latest` version is provided):
 ```
-> sudo docker build -t prometheus-mysql-exporter .
+> sudo docker pull braedon/prometheus-mysql-exporter:<version>
 ```
-To run a container successfully, you will need to mount a query config file to `/usr/src/app/exporter.cfg` and map container port 8080 to a port on the host. Any options placed after the image name (`prometheus-mysql-exporter`) will be passed to the process inside the container. You will also need to use this to configure the MySQL server using `-s`.
+To run a container successfully, you will need to mount a query config file to `/usr/src/app/exporter.cfg` and map container port 8080 to a port on the host. Any options placed after the image name (`prometheus-mysql-exporter`) will be passed to the process inside the container. For example, you will need to use this to configure the MySQL server using `-s`.
 ```
 > sudo docker run --rm --name exporter \
     -v <path to query config file>:/usr/src/app/exporter.cfg \
-    -p 8080:8080 \
-    prometheus-mysql-exporter -s <mysql server> -d <mysql database(s)>
+    -p <host port>:8080 \
+    braedon/prometheus-mysql-exporter:<version> -s <mysql server> -d <mysql database(s)>
 ```
-You can change other options in the same way as `-s`. For example, you could change where the query config file is read from using `-c`.
-
-If you don't want to mount the query config file in at run time, you could modify the Dockerfile to copy it in when building the image.
+If you don't want to mount the query config file in at run time, you could extend an existing image with your own Dockerfile that copies the config file in at build time.
 
 # Development
+To install directly from the git repo, run the following in the root project directory:
+```
+> pip3 install .
+```
 The exporter can be installed in "editable" mode, using pip's `-e` flag. This allows you to test out changes without having to re-install.
 ```
 > pip3 install -e .
 ```
-
+To build a docker image directly from the git repo, run the following in the root project directory:
+```
+> sudo docker build -t <your repository name and tag> .
+```
 Send me a PR if you have a change you want to contribute!
