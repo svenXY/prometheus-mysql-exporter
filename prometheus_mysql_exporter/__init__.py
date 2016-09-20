@@ -96,12 +96,24 @@ def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_col
     )
 
 def main():
+    def server_address(address_string):
+        if ':' in address_string:
+            host, port_string = address_string.split(':', 1)
+            try:
+                port = int(port_string)
+            except ValueError:
+                msg = "port '{}' in address '{}' is not an integer".format(port_string, address_string)
+                raise argparse.ArgumentTypeError(msg)
+            return (host, port)
+        else:
+            return (address_string, 3306)
+
     parser = argparse.ArgumentParser(description='Export MySQL query results to Prometheus.')
     parser.add_argument('-p', '--port', type=int, default=8080,
         help='port to serve the metrics endpoint on. (default: 8080)')
     parser.add_argument('-c', '--config-file', default='exporter.cfg',
         help='path to query config file. Can be absolute, or relative to the current working directory. (default: exporter.cfg)')
-    parser.add_argument('-s', '--mysql-server', default='localhost',
+    parser.add_argument('-s', '--mysql-server', type=server_address, default='localhost',
         help='address of a MySQL server to run queries on. A port can be provided if non-standard (3306) e.g. mysql:3333 (default: localhost)')
     parser.add_argument('-d', '--mysql-databases', required=True,
         help='databases to run queries on. Database names should be separated by commas e.g. db1,db2.')
@@ -120,11 +132,7 @@ def main():
     logging.captureWarnings(True)
 
     port = args.port
-    if ':' in args.mysql_server:
-        mysql_host, mysql_port = args.mysql_server.split(':', 1)
-    else:
-        mysql_host = args.mysql_server
-        mysql_port = 3306
+    mysql_host, mysql_port = args.mysql_server
 
     dbs = args.mysql_databases.split(',')
 
