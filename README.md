@@ -14,7 +14,7 @@ Note that you may need to add the start script location (see pip output) to your
 # Usage
 Once installed, you can run the exporter with the `prometheus-mysql-exporter` command.
 
-By default, it will bind to port 8080, query MySQL on `localhost:3306` using the `root` user (with no password) and run queries configured in a file `exporter.cfg` in the working directory. There is no default database to run the queries on, so you must specify at least one. You can set the database(s) and change any defaults as required by passing in options:
+By default, it will bind to port 9207, query MySQL on `localhost:3306` using the `root` user (with no password) and run queries configured in a file `exporter.cfg` in the working directory. There is no default database to run the queries on, so you must specify at least one. You can set the database(s) and change any defaults as required by passing in options:
 ```
 > prometheus-mysql-exporter -p <port> -s <mysql server> -u <mysql username> -P <mysql password> -c <path to query config file> -d <mysql database(s)>
 ```
@@ -27,11 +27,11 @@ Docker images for released versions can be found on Docker Hub (note that no `la
 ```
 > sudo docker pull braedon/prometheus-mysql-exporter:<version>
 ```
-To run a container successfully, you will need to mount a query config file to `/usr/src/app/exporter.cfg` and map container port 8080 to a port on the host. Any options placed after the image name (`prometheus-mysql-exporter`) will be passed to the process inside the container. For example, you will need to use this to configure the MySQL server using `-s`.
+To run a container successfully, you will need to mount a query config file to `/usr/src/app/exporter.cfg` and map container port 9207 to a port on the host. Any options placed after the image name (`prometheus-mysql-exporter`) will be passed to the process inside the container. For example, you will need to use this to configure the MySQL server using `-s`.
 ```
 > sudo docker run --rm --name exporter \
     -v <path to query config file>:/usr/src/app/exporter.cfg \
-    -p <host port>:8080 \
+    -p <host port>:9207 \
     braedon/prometheus-mysql-exporter:<version> -s <mysql server> -d <mysql database(s)>
 ```
 If you don't want to mount the query config file in at run time, you could extend an existing image with your own Dockerfile that copies the config file in at build time.

@@ -109,8 +109,8 @@ def main():
             return (address_string, 3306)
 
     parser = argparse.ArgumentParser(description='Export MySQL query results to Prometheus.')
-    parser.add_argument('-p', '--port', type=int, default=8080,
-        help='port to serve the metrics endpoint on. (default: 8080)')
+    parser.add_argument('-p', '--port', type=int, default=9207,
+        help='port to serve the metrics endpoint on. (default: 9207)')
     parser.add_argument('-c', '--config-file', default='exporter.cfg',
         help='path to query config file. Can be absolute, or relative to the current working directory. (default: exporter.cfg)')
     parser.add_argument('-s', '--mysql-server', type=server_address, default='localhost',

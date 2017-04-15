@@ -17,6 +17,6 @@ COPY MANIFEST.in /usr/src/app/
 
 RUN pip install -e .
 
-EXPOSE 8080
+EXPOSE 9207
 
 ENTRYPOINT ["python", "-u", "/usr/local/bin/prometheus-mysql-exporter"]
