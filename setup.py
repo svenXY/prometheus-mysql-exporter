@@ -24,6 +24,7 @@ setup(
     packages=find_packages(exclude=['tests']),
     install_requires=[
         'mysqlclient',
+        'jog',
         'prometheus-client >= 0.6.0',
     ],
     entry_points={

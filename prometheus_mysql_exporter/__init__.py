@@ -2,9 +2,12 @@ import argparse
 import configparser
 import logging
 import sched
+import signal
+import sys
 import time
 import MySQLdb
 
+from jog import JogFormatter
 from prometheus_client import start_http_server, Gauge
 
 from prometheus_mysql_exporter.parser import parse_response
@@ -99,7 +102,18 @@ def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_col
     )
 
 
+def shutdown():
+    logging.info('Shutting down')
+    sys.exit(1)
+
+
+def signal_handler(signum, frame):
+    shutdown()
+
+
 def main():
+    signal.signal(signal.SIGTERM, signal_handler)
+
     def server_address(address_string):
         if ':' in address_string:
             host, port_string = address_string.split(':', 1)
@@ -125,13 +139,23 @@ def main():
                         help='MySQL user to run queries as. (default: root)')
     parser.add_argument('-P', '--mysql-password', default='',
                         help='password for the MySQL user, if required. (default: no password)')
+    parser.add_argument('-j', '--json-logging', action='store_true',
+                        help='turn on json logging.')
+    parser.add_argument('--log-level', default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='detail level to log. (default: INFO)')
     parser.add_argument('-v', '--verbose', action='store_true',
-                        help='turn on verbose logging.')
+                        help='turn on verbose (DEBUG) logging. Overrides --log-level.')
     args = parser.parse_args()
 
+    log_handler = logging.StreamHandler()
+    log_format = '[%(asctime)s] %(name)s.%(levelname)s %(threadName)s %(message)s'
+    formatter = JogFormatter(log_format) if args.json_logging else logging.Formatter(log_format)
+    log_handler.setFormatter(formatter)
+
+    log_level = getattr(logging, args.log_level)
     logging.basicConfig(
-        format='[%(asctime)s] %(name)s.%(levelname)s %(threadName)s %(message)s',
-        level=logging.DEBUG if args.verbose else logging.INFO
+        handlers=[log_handler],
+        level=logging.DEBUG if args.verbose else log_level
     )
     logging.captureWarnings(True)
 
@@ -159,10 +183,6 @@ def main():
 
     scheduler = sched.scheduler()
 
-    logging.info('Starting server...')
-    start_http_server(port)
-    logging.info('Server started on port %s', port)
-
     for name, (interval, query, value_columns) in queries.items():
         mysql_client = MySQLdb.connect(host=mysql_host,
                                        port=mysql_port,
@@ -171,9 +191,13 @@ def main():
                                        autocommit=True)
         run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns)
 
+    logging.info('Starting server...')
+    start_http_server(port)
+    logging.info('Server started on port %s', port)
+
     try:
         scheduler.run()
     except KeyboardInterrupt:
         pass
 
-    logging.info('Shutting down')
+    shutdown()
