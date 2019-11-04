@@ -16,12 +16,15 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     keywords='monitoring prometheus exporter mysql',
     packages=find_packages(exclude=['tests']),
     install_requires=[
         'mysqlclient',
-        'prometheus-client'
+        'prometheus-client >= 0.6.0',
     ],
     entry_points={
         'console_scripts': [

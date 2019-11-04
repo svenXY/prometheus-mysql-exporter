@@ -1,9 +1,9 @@
-FROM python:3-slim
+FROM python:3.7-slim
 
 RUN apt-get update -q && \
 apt-get install -y --no-install-recommends \
   build-essential \
-  libmysqlclient-dev && \
+  default-libmysqlclient-dev && \
 apt-get clean -y && \
 rm -rf /var/lib/apt/lists/*
 
