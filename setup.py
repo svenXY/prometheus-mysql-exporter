@@ -23,8 +23,9 @@ setup(
     keywords='monitoring prometheus exporter mysql',
     packages=find_packages(exclude=['tests']),
     install_requires=[
-        'mysqlclient',
+        'click',
         'jog',
+        'mysqlclient',
         'prometheus-client >= 0.6.0',
     ],
     entry_points={

@@ -1,4 +1,4 @@
-import argparse
+import click
 import configparser
 import logging
 import sched
@@ -11,6 +11,10 @@ from jog import JogFormatter
 from prometheus_client import start_http_server, Gauge
 
 from prometheus_mysql_exporter.parser import parse_response
+
+CONTEXT_SETTINGS = {
+    'help_option_names': ['-h', '--help']
+}
 
 gauges = {}
 
@@ -111,64 +115,71 @@ def signal_handler(signum, frame):
     shutdown()
 
 
-def main():
+def validate_server_address(ctx, param, address_string):
+    if ':' in address_string:
+        host, port_string = address_string.split(':', 1)
+        try:
+            port = int(port_string)
+        except ValueError:
+            msg = "port '{}' in address '{}' is not an integer".format(port_string, address_string)
+            raise click.BadParameter(msg)
+        return (host, port)
+    else:
+        return (address_string, 3306)
+
+
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.option('--port', '-p', default=9207,
+              help='Port to serve the metrics endpoint on. (default: 9207)')
+@click.option('--config-file', '-c', default='exporter.cfg',
+              help='Path to query config file. '
+                   'Can be absolute, or relative to the current working directory. '
+                   '(default: exporter.cfg)')
+@click.option('--mysql-server', '-s', callback=validate_server_address, default='localhost',
+              help='Address of a MySQL server to run queries on. '
+                   'A port can be provided if non-standard (3306) e.g. mysql:3333. '
+                   '(default: localhost)')
+@click.option('--mysql-databases', '-d', required=True,
+              help='Databases to run queries on. '
+                   'Database names should be separated by commas e.g. db1,db2.')
+@click.option('--mysql-user', '-u', default='root',
+              help='MySQL user to run queries as. (default: root)')
+@click.option('--mysql-password', '-P', default='',
+              help='Password for the MySQL user, if required. (default: no password)')
+@click.option('--json-logging', '-j', default=False, is_flag=True,
+              help='Turn on json logging.')
+@click.option('--log-level', default='INFO',
+              type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']),
+              help='Detail level to log. (default: INFO)')
+@click.option('--verbose', '-v', default=False, is_flag=True,
+              help='Turn on verbose (DEBUG) logging. Overrides --log-level.')
+def cli(**options):
+    """Export MySQL query results to Prometheus."""
+
     signal.signal(signal.SIGTERM, signal_handler)
-
-    def server_address(address_string):
-        if ':' in address_string:
-            host, port_string = address_string.split(':', 1)
-            try:
-                port = int(port_string)
-            except ValueError:
-                msg = "port '{}' in address '{}' is not an integer".format(port_string, address_string)
-                raise argparse.ArgumentTypeError(msg)
-            return (host, port)
-        else:
-            return (address_string, 3306)
-
-    parser = argparse.ArgumentParser(description='Export MySQL query results to Prometheus.')
-    parser.add_argument('-p', '--port', type=int, default=9207,
-                        help='port to serve the metrics endpoint on. (default: 9207)')
-    parser.add_argument('-c', '--config-file', default='exporter.cfg',
-                        help='path to query config file. Can be absolute, or relative to the current working directory. (default: exporter.cfg)')
-    parser.add_argument('-s', '--mysql-server', type=server_address, default='localhost',
-                        help='address of a MySQL server to run queries on. A port can be provided if non-standard (3306) e.g. mysql:3333 (default: localhost)')
-    parser.add_argument('-d', '--mysql-databases', required=True,
-                        help='databases to run queries on. Database names should be separated by commas e.g. db1,db2.')
-    parser.add_argument('-u', '--mysql-user', default='root',
-                        help='MySQL user to run queries as. (default: root)')
-    parser.add_argument('-P', '--mysql-password', default='',
-                        help='password for the MySQL user, if required. (default: no password)')
-    parser.add_argument('-j', '--json-logging', action='store_true',
-                        help='turn on json logging.')
-    parser.add_argument('--log-level', default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
-                        help='detail level to log. (default: INFO)')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='turn on verbose (DEBUG) logging. Overrides --log-level.')
-    args = parser.parse_args()
 
     log_handler = logging.StreamHandler()
     log_format = '[%(asctime)s] %(name)s.%(levelname)s %(threadName)s %(message)s'
-    formatter = JogFormatter(log_format) if args.json_logging else logging.Formatter(log_format)
+    formatter = JogFormatter(log_format) if options['json_logging'] else logging.Formatter(log_format)
     log_handler.setFormatter(formatter)
 
-    log_level = getattr(logging, args.log_level)
+    log_level = getattr(logging, options['log_level'])
     logging.basicConfig(
         handlers=[log_handler],
-        level=logging.DEBUG if args.verbose else log_level
+        level=logging.DEBUG if options['verbose'] else log_level
     )
     logging.captureWarnings(True)
 
-    port = args.port
-    mysql_host, mysql_port = args.mysql_server
+    port = options['port']
+    mysql_host, mysql_port = options['mysql_server']
 
-    dbs = args.mysql_databases.split(',')
+    dbs = options['mysql_databases'].split(',')
 
-    username = args.mysql_user
-    password = args.mysql_password
+    username = options['mysql_user']
+    password = options['mysql_password']
 
     config = configparser.ConfigParser()
-    config.read(args.config_file)
+    config.read(options['config_file'])
 
     query_prefix = 'query_'
     queries = {}
@@ -201,3 +212,7 @@ def main():
         pass
 
     shutdown()
+
+
+def main():
+    cli(auto_envvar_prefix='MYSQL_EXPORTER')

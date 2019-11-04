@@ -20,6 +20,8 @@ By default, it will bind to port 9207, query MySQL on `localhost:3306` using the
 ```
 Run with the `-h` flag to see details on all the available options.
 
+Note that all options can be set via environment variables. The environment variable names are prefixed with `MYSQL_EXPORTER`, e.g. `MYSQL_EXPORTER_MYSQL_USER=fred` is equivalent to `--mysql-user fred`. CLI options take precidence over environment variables.
+
 See the provided [exporter.cfg](exporter.cfg) file for query configuration examples and explanation.
 
 # Docker
