@@ -1,6 +1,8 @@
 import click
 import configparser
+import glob
 import logging
+import os
 import sched
 import signal
 import sys
@@ -131,10 +133,18 @@ def validate_server_address(ctx, param, address_string):
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--port', '-p', default=9207,
               help='Port to serve the metrics endpoint on. (default: 9207)')
-@click.option('--config-file', '-c', default='exporter.cfg',
+@click.option('--config-file', '-c', default='exporter.cfg', type=click.File(),
               help='Path to query config file. '
                    'Can be absolute, or relative to the current working directory. '
                    '(default: exporter.cfg)')
+@click.option('--config-dir', default='./config', type=click.Path(file_okay=False),
+              help='Path to query config directory. '
+                   'If present, any files ending in ".cfg" in the directory '
+                   'will be parsed as additional query config files. '
+                   'Merge order is main config file, then config directory files '
+                   'in filename order. '
+                   'Can be absolute, or relative to the current working directory. '
+                   '(default: ./config)')
 @click.option('--mysql-server', '-s', callback=validate_server_address, default='localhost',
               help='Address of a MySQL server to run queries on. '
                    'A port can be provided if non-standard (3306) e.g. mysql:3333. '
@@ -179,7 +189,11 @@ def cli(**options):
     password = options['mysql_password']
 
     config = configparser.ConfigParser()
-    config.read(options['config_file'])
+    config.read_file(options['config_file'])
+
+    config_dir_file_pattern = os.path.join(options['config_dir'], '*.cfg')
+    config_dir_sorted_files = sorted(glob.glob(config_dir_file_pattern))
+    config.read(config_dir_sorted_files)
 
     query_prefix = 'query_'
     queries = {}
