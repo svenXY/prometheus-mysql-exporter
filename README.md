@@ -20,7 +20,7 @@ By default, it will bind to port 9207, query MySQL on `localhost:3306` using the
 ```
 Run with the `-h` flag to see details on all the available options.
 
-See the provided `exporter.cfg` file for query configuration examples and explanation.
+See the provided [exporter.cfg](exporter.cfg) file for query configuration examples and explanation.
 
 # Docker
 Docker images for released versions can be found on Docker Hub (note that no `latest` version is provided):

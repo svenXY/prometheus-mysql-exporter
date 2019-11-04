@@ -4,7 +4,7 @@ setup(
     name='prometheus-mysql-exporter',
     version='0.2.0.dev1',
     description='MySQL query Prometheus exporter',
-    url='https://github.com/Braedon/prometheus-mysql-exporter',
+    url='https://github.com/braedon/prometheus-mysql-exporter',
     author='Braedon Vickers',
     author_email='braedon.vickers@gmal.com',
     license='MIT',

@@ -1,6 +1,5 @@
 import argparse
 import configparser
-import json
 import logging
 import sched
 import time
@@ -12,11 +11,14 @@ from prometheus_mysql_exporter.parser import parse_response
 
 gauges = {}
 
+
 def format_label_value(value_list):
     return '_'.join(value_list)
 
+
 def format_metric_name(name_list):
     return '_'.join(name_list)
+
 
 def update_gauges(metrics):
     metric_dict = {}
@@ -53,6 +55,7 @@ def update_gauges(metrics):
 
         gauges[metric_name] = (new_label_values_set, gauge)
 
+
 def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns):
     def scheduled_run(scheduled_time):
         all_metrics = []
@@ -69,7 +72,7 @@ def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_col
 
                     metrics = parse_response(value_columns, response, [name], {'db': [db]})
                 except Exception:
-                    logging.exception('Error while querying indices [%s], query [%s].', indices, query)
+                    logging.exception('Error while querying db [%s], query [%s].', db, query)
                 else:
                     all_metrics += metrics
 
@@ -95,6 +98,7 @@ def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_col
         (next_scheduled_time,)
     )
 
+
 def main():
     def server_address(address_string):
         if ':' in address_string:
@@ -110,19 +114,19 @@ def main():
 
     parser = argparse.ArgumentParser(description='Export MySQL query results to Prometheus.')
     parser.add_argument('-p', '--port', type=int, default=9207,
-        help='port to serve the metrics endpoint on. (default: 9207)')
+                        help='port to serve the metrics endpoint on. (default: 9207)')
     parser.add_argument('-c', '--config-file', default='exporter.cfg',
-        help='path to query config file. Can be absolute, or relative to the current working directory. (default: exporter.cfg)')
+                        help='path to query config file. Can be absolute, or relative to the current working directory. (default: exporter.cfg)')
     parser.add_argument('-s', '--mysql-server', type=server_address, default='localhost',
-        help='address of a MySQL server to run queries on. A port can be provided if non-standard (3306) e.g. mysql:3333 (default: localhost)')
+                        help='address of a MySQL server to run queries on. A port can be provided if non-standard (3306) e.g. mysql:3333 (default: localhost)')
     parser.add_argument('-d', '--mysql-databases', required=True,
-        help='databases to run queries on. Database names should be separated by commas e.g. db1,db2.')
+                        help='databases to run queries on. Database names should be separated by commas e.g. db1,db2.')
     parser.add_argument('-u', '--mysql-user', default='root',
-        help='MySQL user to run queries as. (default: root)')
+                        help='MySQL user to run queries as. (default: root)')
     parser.add_argument('-P', '--mysql-password', default='',
-        help='password for the MySQL user, if required. (default: no password)')
+                        help='password for the MySQL user, if required. (default: no password)')
     parser.add_argument('-v', '--verbose', action='store_true',
-        help='turn on verbose logging.')
+                        help='turn on verbose logging.')
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -160,13 +164,11 @@ def main():
     logging.info('Server started on port %s', port)
 
     for name, (interval, query, value_columns) in queries.items():
-        mysql_client = MySQLdb.connect(
-            host = mysql_host,
-            port = mysql_port,
-            user = username,
-            passwd = password,
-            autocommit = True,
-        )
+        mysql_client = MySQLdb.connect(host=mysql_host,
+                                       port=mysql_port,
+                                       user=username,
+                                       passwd=password,
+                                       autocommit=True)
         run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns)
 
     try:
