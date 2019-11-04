@@ -10,64 +10,34 @@ import time
 import MySQLdb
 
 from jog import JogFormatter
-from prometheus_client import start_http_server, Gauge
+from prometheus_client import start_http_server
+from prometheus_client.core import REGISTRY
 
-from prometheus_mysql_exporter.parser import parse_response
+from .metrics import gauge_generator
+from .parser import parse_response
 
 CONTEXT_SETTINGS = {
     'help_option_names': ['-h', '--help']
 }
 
-gauges = {}
+METRICS_BY_QUERY = {}
 
 
-def format_label_value(value_list):
-    return '_'.join(value_list)
+class QueryMetricCollector(object):
 
-
-def format_metric_name(name_list):
-    return '_'.join(name_list)
-
-
-def update_gauges(metrics):
-    metric_dict = {}
-    for (name_list, label_dict, value) in metrics:
-        metric_name = format_metric_name(name_list)
-        if metric_name not in metric_dict:
-            metric_dict[metric_name] = (tuple(label_dict.keys()), {})
-
-        label_keys = metric_dict[metric_name][0]
-        label_values = tuple([
-            format_label_value(label_dict[key])
-            for key in label_keys
-        ])
-
-        metric_dict[metric_name][1][label_values] = value
-
-    for metric_name, (label_keys, value_dict) in metric_dict.items():
-        if metric_name in gauges:
-            (old_label_values_set, gauge) = gauges[metric_name]
-        else:
-            old_label_values_set = set()
-            gauge = Gauge(metric_name, '', label_keys)
-
-        new_label_values_set = set(value_dict.keys())
-
-        for label_values in old_label_values_set - new_label_values_set:
-            gauge.remove(*label_values)
-
-        for label_values, value in value_dict.items():
-            if label_values:
-                gauge.labels(*label_values).set(value)
-            else:
-                gauge.set(value)
-
-        gauges[metric_name] = (new_label_values_set, gauge)
+    def collect(self):
+        # Copy METRICS_BY_QUERY before iterating over it
+        # as it may be updated by other threads.
+        # (only first level - lower levels are replaced
+        # wholesale, so don't worry about them)
+        query_metrics = METRICS_BY_QUERY.copy()
+        for metrics in query_metrics.values():
+            yield from gauge_generator(metrics)
 
 
 def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns):
     def scheduled_run(scheduled_time):
-        all_metrics = []
+        metrics = []
 
         for db in dbs:
             mysql_client.select_db(db)
@@ -77,15 +47,15 @@ def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_col
                     raw_response = cursor.fetchall()
 
                     columns = [column[0] for column in cursor.description]
-                    response = [{column: row[i] for i, column in enumerate(columns)} for row in raw_response]
+                    response = [{column: row[i] for i, column in enumerate(columns)}
+                                for row in raw_response]
 
-                    metrics = parse_response(value_columns, response, [name], {'db': [db]})
+                    metrics += parse_response(name, db, value_columns, response)
+
                 except Exception:
                     logging.exception('Error while querying db [%s], query [%s].', db, query)
-                else:
-                    all_metrics += metrics
 
-        update_gauges(all_metrics)
+        METRICS_BY_QUERY[name] = metrics
 
         current_time = time.monotonic()
         next_scheduled_time = scheduled_time + interval
@@ -215,6 +185,8 @@ def cli(**options):
                                        passwd=password,
                                        autocommit=True)
         run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns)
+
+    REGISTRY.register(QueryMetricCollector())
 
     logging.info('Starting server...')
     start_http_server(port)
