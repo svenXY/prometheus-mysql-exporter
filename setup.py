@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='prometheus-mysql-exporter',
-    version='0.2.0.dev1',
+    version='0.2.0',
     description='MySQL query Prometheus exporter',
     url='https://github.com/braedon/prometheus-mysql-exporter',
     author='Braedon Vickers',
