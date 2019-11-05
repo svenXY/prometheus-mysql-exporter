@@ -4,8 +4,6 @@ import glob
 import logging
 import os
 import sched
-import signal
-import sys
 import MySQLdb
 
 from jog import JogFormatter
@@ -15,6 +13,7 @@ from prometheus_client.core import REGISTRY
 from .metrics import gauge_generator
 from .parser import parse_response
 from .scheduler import schedule_job
+from .utils import log_exceptions, nice_shutdown
 
 log = logging.getLogger(__name__)
 
@@ -57,15 +56,6 @@ def run_query(mysql_client, dbs, name, query, value_columns):
             log.exception('Error while querying db [%s], query [%s].', db, query)
 
     METRICS_BY_QUERY[name] = metrics
-
-
-def shutdown():
-    log.info('Shutting down')
-    sys.exit(1)
-
-
-def signal_handler(signum, frame):
-    shutdown()
 
 
 def validate_server_address(ctx, param, address_string):
@@ -116,8 +106,6 @@ def validate_server_address(ctx, param, address_string):
               help='Turn on verbose (DEBUG) logging. Overrides --log-level.')
 def cli(**options):
     """Export MySQL query results to Prometheus."""
-
-    signal.signal(signal.SIGTERM, signal_handler)
 
     log_handler = logging.StreamHandler()
     log_format = '[%(asctime)s] %(name)s.%(levelname)s %(threadName)s %(message)s'
@@ -175,13 +163,10 @@ def cli(**options):
     start_http_server(port)
     log.info('Server started on port %s', port)
 
-    try:
-        scheduler.run()
-    except KeyboardInterrupt:
-        pass
-
-    shutdown()
+    scheduler.run()
 
 
+@log_exceptions(exit_on_exception=True)
+@nice_shutdown()
 def main():
     cli(auto_envvar_prefix='MYSQL_EXPORTER')
