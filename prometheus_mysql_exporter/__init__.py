@@ -6,7 +6,6 @@ import os
 import sched
 import signal
 import sys
-import time
 import MySQLdb
 
 from jog import JogFormatter
@@ -15,6 +14,9 @@ from prometheus_client.core import REGISTRY
 
 from .metrics import gauge_generator
 from .parser import parse_response
+from .scheduler import schedule_job
+
+log = logging.getLogger(__name__)
 
 CONTEXT_SETTINGS = {
     'help_option_names': ['-h', '--help']
@@ -35,51 +37,30 @@ class QueryMetricCollector(object):
             yield from gauge_generator(metrics)
 
 
-def run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns):
-    def scheduled_run(scheduled_time):
-        metrics = []
+def run_query(mysql_client, dbs, name, query, value_columns):
+    metrics = []
 
-        for db in dbs:
+    for db in dbs:
+        try:
             mysql_client.select_db(db)
             with mysql_client.cursor() as cursor:
-                try:
-                    cursor.execute(query)
-                    raw_response = cursor.fetchall()
+                cursor.execute(query)
+                raw_response = cursor.fetchall()
 
-                    columns = [column[0] for column in cursor.description]
-                    response = [{column: row[i] for i, column in enumerate(columns)}
-                                for row in raw_response]
+                columns = [column[0] for column in cursor.description]
+                response = [{column: row[i] for i, column in enumerate(columns)}
+                            for row in raw_response]
 
-                    metrics += parse_response(name, db, value_columns, response)
+                metrics += parse_response(name, db, value_columns, response)
 
-                except Exception:
-                    logging.exception('Error while querying db [%s], query [%s].', db, query)
+        except Exception:
+            log.exception('Error while querying db [%s], query [%s].', db, query)
 
-        METRICS_BY_QUERY[name] = metrics
-
-        current_time = time.monotonic()
-        next_scheduled_time = scheduled_time + interval
-        while next_scheduled_time < current_time:
-            next_scheduled_time += interval
-
-        scheduler.enterabs(
-            next_scheduled_time,
-            1,
-            scheduled_run,
-            (next_scheduled_time,)
-        )
-
-    next_scheduled_time = time.monotonic()
-    scheduler.enterabs(
-        next_scheduled_time,
-        1,
-        scheduled_run,
-        (next_scheduled_time,)
-    )
+    METRICS_BY_QUERY[name] = metrics
 
 
 def shutdown():
-    logging.info('Shutting down')
+    log.info('Shutting down')
     sys.exit(1)
 
 
@@ -178,19 +159,21 @@ def cli(**options):
 
     scheduler = sched.scheduler()
 
+    mysql_client = MySQLdb.connect(host=mysql_host,
+                                   port=mysql_port,
+                                   user=username,
+                                   passwd=password,
+                                   autocommit=True)
+
     for name, (interval, query, value_columns) in queries.items():
-        mysql_client = MySQLdb.connect(host=mysql_host,
-                                       port=mysql_port,
-                                       user=username,
-                                       passwd=password,
-                                       autocommit=True)
-        run_scheduler(scheduler, mysql_client, dbs, name, interval, query, value_columns)
+        schedule_job(scheduler, interval,
+                     run_query, mysql_client, dbs, name, query, value_columns)
 
     REGISTRY.register(QueryMetricCollector())
 
-    logging.info('Starting server...')
+    log.info('Starting server...')
     start_http_server(port)
-    logging.info('Server started on port %s', port)
+    log.info('Server started on port %s', port)
 
     try:
         scheduler.run()
