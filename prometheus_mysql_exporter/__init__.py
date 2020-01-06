@@ -10,7 +10,7 @@ from jog import JogFormatter
 from prometheus_client import start_http_server
 from prometheus_client.core import REGISTRY
 
-from .metrics import gauge_generator
+from .metrics import gauge_generator, group_metrics, merge_metric_dicts
 from .parser import parse_response
 from .scheduler import schedule_job
 from .utils import log_exceptions, nice_shutdown
@@ -32,11 +32,12 @@ class QueryMetricCollector(object):
         # (only first level - lower levels are replaced
         # wholesale, so don't worry about them)
         query_metrics = METRICS_BY_QUERY.copy()
-        for metrics in query_metrics.values():
-            yield from gauge_generator(metrics)
+        for metric_dict in query_metrics.values():
+            yield from gauge_generator(metric_dict)
 
 
-def run_query(mysql_client, query_name, db_name, query, value_columns):
+def run_query(mysql_client, query_name, db_name, query, value_columns,
+              on_error, on_missing):
 
     try:
         mysql_client.select_db(db_name)
@@ -48,12 +49,49 @@ def run_query(mysql_client, query_name, db_name, query, value_columns):
         response = [{column: row[i] for i, column in enumerate(columns)}
                     for row in raw_response]
         metrics = parse_response(query_name, db_name, value_columns, response)
+        metric_dict = group_metrics(metrics)
 
     except Exception:
         log.exception('Error while querying db [%s], query [%s].', db_name, query)
 
+        # If this query has successfully run before, we need to handle any
+        # metrics produced by that previous run.
+        if query_name in METRICS_BY_QUERY:
+            old_metric_dict = METRICS_BY_QUERY[query_name]
+
+            if on_error == 'preserve':
+                metric_dict = old_metric_dict
+
+            elif on_error == 'drop':
+                metric_dict = {}
+
+            elif on_error == 'zero':
+                # Merging the old metric dict with an empty one, and zeroing
+                # any missing metrics, produces a metric dict with the same
+                # metrics, but all zero values.
+                metric_dict = merge_metric_dicts(old_metric_dict, {},
+                                                 zero_missing=True)
+
+            METRICS_BY_QUERY[query_name] = metric_dict
+
     else:
-        METRICS_BY_QUERY[query_name] = metrics
+        # If this query has successfully run before, we need to handle any
+        # missing metrics.
+        if query_name in METRICS_BY_QUERY:
+            old_metric_dict = METRICS_BY_QUERY[query_name]
+
+            if on_missing == 'preserve':
+                metric_dict = merge_metric_dicts(old_metric_dict, metric_dict,
+                                                 zero_missing=False)
+
+            elif on_missing == 'drop':
+                pass  # use new metric dict untouched
+
+            elif on_missing == 'zero':
+                metric_dict = merge_metric_dicts(old_metric_dict, metric_dict,
+                                                 zero_missing=True)
+
+        METRICS_BY_QUERY[query_name] = metric_dict
 
 
 def validate_server_address(ctx, param, address_string):
@@ -67,6 +105,25 @@ def validate_server_address(ctx, param, address_string):
         return (host, port)
     else:
         return (address_string, 3306)
+
+
+def configparser_enum_conv(enum):
+    lower_enums = tuple(e.lower() for e in enum)
+
+    def conv(value):
+        lower_value = value.lower()
+        if lower_value in lower_enums:
+            return lower_value
+        else:
+            raise ValueError('Value {} not value. Must be one of {}'.format(
+                             value, ','.join(enum)))
+
+    return conv
+
+
+CONFIGPARSER_CONVERTERS = {
+    'enum': configparser_enum_conv(('preserve', 'drop', 'zero'))
+}
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -120,7 +177,7 @@ def cli(**options):
     username = options['mysql_user']
     password = options['mysql_password']
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(converters=CONFIGPARSER_CONVERTERS)
     config.read_file(options['config_file'])
 
     config_dir_file_pattern = os.path.join(options['config_dir'], '*.cfg')
@@ -136,8 +193,13 @@ def cli(**options):
             db_name = config.get(section, 'QueryDatabase')
             query = config.get(section, 'QueryStatement')
             value_columns = config.get(section, 'QueryValueColumns').split(',')
+            on_error = config.getenum(section, 'QueryOnError',
+                                      fallback='drop')
+            on_missing = config.getenum(section, 'QueryOnMissing',
+                                        fallback='drop')
 
-            queries[query_name] = (interval, db_name, query, value_columns)
+            queries[query_name] = (interval, db_name, query, value_columns,
+                                   on_error, on_missing)
 
     scheduler = sched.scheduler()
 
@@ -147,10 +209,14 @@ def cli(**options):
                                    passwd=password,
                                    autocommit=True)
 
-    for query_name, (interval, db_name, query, value_columns) in queries.items():
-        schedule_job(scheduler, interval,
-                     run_query, mysql_client, query_name,
-                     db_name, query, value_columns)
+    if queries:
+        for query_name, (interval, db_name, query, value_columns,
+                         on_error, on_missing) in queries.items():
+            schedule_job(scheduler, interval,
+                         run_query, mysql_client, query_name,
+                         db_name, query, value_columns, on_error, on_missing)
+    else:
+        log.warning('No queries found in config file(s)')
 
     REGISTRY.register(QueryMetricCollector())
 

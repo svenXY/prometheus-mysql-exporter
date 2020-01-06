@@ -1,6 +1,7 @@
+from collections import OrderedDict
 from numbers import Number
 
-from .metrics import format_metric_name, format_label_key, format_label_value
+from .metrics import format_metric_name, format_labels
 
 
 def parse_response(query_name, db_name, value_columns, response):
@@ -24,13 +25,10 @@ def parse_response(query_name, db_name, value_columns, response):
         #       only be run on a single database. It's retained for backwards
         #       compatibility with previous versions that allowed queries to be
         #       run on multiple databases.
-        labels = {'db': db_name}
-        labels.update({column: str(row[column])
-                       for column in row
-                       if column not in value_columns})
-
-        formatted_labels = {format_label_key(k): format_label_value(v)
-                            for k, v in labels.items()}
+        labels = OrderedDict({'db': db_name})
+        labels.update((column, str(row[column]))
+                      for column in row
+                      if column not in value_columns)
 
         for value_column in value_columns:
             value = row[value_column]
@@ -38,7 +36,7 @@ def parse_response(query_name, db_name, value_columns, response):
                 result.append((
                     format_metric_name(query_name, value_column),
                     "Value column '{}' for query '{}'.".format(value_column, query_name),
-                    formatted_labels,
+                    format_labels(labels),
                     value,
                 ))
 
