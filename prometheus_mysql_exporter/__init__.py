@@ -36,26 +36,24 @@ class QueryMetricCollector(object):
             yield from gauge_generator(metrics)
 
 
-def run_query(mysql_client, dbs, name, query, value_columns):
-    metrics = []
+def run_query(mysql_client, query_name, db_name, query, value_columns):
 
-    for db in dbs:
-        try:
-            mysql_client.select_db(db)
-            with mysql_client.cursor() as cursor:
-                cursor.execute(query)
-                raw_response = cursor.fetchall()
+    try:
+        mysql_client.select_db(db_name)
+        with mysql_client.cursor() as cursor:
+            cursor.execute(query)
+            raw_response = cursor.fetchall()
+            columns = [column[0] for column in cursor.description]
 
-                columns = [column[0] for column in cursor.description]
-                response = [{column: row[i] for i, column in enumerate(columns)}
-                            for row in raw_response]
+        response = [{column: row[i] for i, column in enumerate(columns)}
+                    for row in raw_response]
+        metrics = parse_response(query_name, db_name, value_columns, response)
 
-                metrics += parse_response(name, db, value_columns, response)
+    except Exception:
+        log.exception('Error while querying db [%s], query [%s].', db_name, query)
 
-        except Exception:
-            log.exception('Error while querying db [%s], query [%s].', db, query)
-
-    METRICS_BY_QUERY[name] = metrics
+    else:
+        METRICS_BY_QUERY[query_name] = metrics
 
 
 def validate_server_address(ctx, param, address_string):
@@ -90,9 +88,6 @@ def validate_server_address(ctx, param, address_string):
               help='Address of a MySQL server to run queries on. '
                    'A port can be provided if non-standard (3306) e.g. mysql:3333. '
                    '(default: localhost)')
-@click.option('--mysql-databases', '-d', required=True,
-              help='Databases to run queries on. '
-                   'Database names should be separated by commas e.g. db1,db2.')
 @click.option('--mysql-user', '-u', default='root',
               help='MySQL user to run queries as. (default: root)')
 @click.option('--mysql-password', '-P', default='',
@@ -122,8 +117,6 @@ def cli(**options):
     port = options['port']
     mysql_host, mysql_port = options['mysql_server']
 
-    dbs = options['mysql_databases'].split(',')
-
     username = options['mysql_user']
     password = options['mysql_password']
 
@@ -139,11 +132,12 @@ def cli(**options):
     for section in config.sections():
         if section.startswith(query_prefix):
             query_name = section[len(query_prefix):]
-            query_interval = config.getfloat(section, 'QueryIntervalSecs')
+            interval = config.getfloat(section, 'QueryIntervalSecs')
+            db_name = config.get(section, 'QueryDatabase')
             query = config.get(section, 'QueryStatement')
             value_columns = config.get(section, 'QueryValueColumns').split(',')
 
-            queries[query_name] = (query_interval, query, value_columns)
+            queries[query_name] = (interval, db_name, query, value_columns)
 
     scheduler = sched.scheduler()
 
@@ -153,9 +147,10 @@ def cli(**options):
                                    passwd=password,
                                    autocommit=True)
 
-    for name, (interval, query, value_columns) in queries.items():
+    for query_name, (interval, db_name, query, value_columns) in queries.items():
         schedule_job(scheduler, interval,
-                     run_query, mysql_client, dbs, name, query, value_columns)
+                     run_query, mysql_client, query_name,
+                     db_name, query, value_columns)
 
     REGISTRY.register(QueryMetricCollector())
 
