@@ -20,6 +20,10 @@ def parse_response(query_name, db_name, value_columns, response):
     result = []
 
     for row in response:
+        # NOTE: This db label isn't strictly necessary, since a single query can
+        #       only be run on a single database. It's retained for backwards
+        #       compatibility with previous versions that allowed queries to be
+        #       run on multiple databases.
         labels = {'db': db_name}
         labels.update({column: str(row[column])
                        for column in row
