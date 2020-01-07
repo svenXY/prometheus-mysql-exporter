@@ -52,7 +52,8 @@ def run_query(mysql_client, query_name, db_name, query, value_columns,
         metric_dict = group_metrics(metrics)
 
     except Exception:
-        log.exception('Error while querying db [%s], query [%s].', db_name, query)
+        log.exception('Error while querying db %(db_name)s, query %(query)s.',
+                      {'db_name': db_name, 'query': query})
 
         # If this query has successfully run before, we need to handle any
         # metrics produced by that previous run.
@@ -222,7 +223,7 @@ def cli(**options):
 
     log.info('Starting server...')
     start_http_server(port)
-    log.info('Server started on port %s', port)
+    log.info('Server started on port %(port)s', {'port': port})
 
     scheduler.run()
 
