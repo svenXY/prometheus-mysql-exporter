@@ -1,6 +1,6 @@
 Prometheus MySQL Exporter
 ====
-This Prometheus exporter periodically runs configured queries against a MySQL database and exports the results as Prometheus gauge metrics.
+This Prometheus exporter periodically runs configured queries against a MySQL server and exports the results as Prometheus gauge metrics.
 
 # Installation
 The exporter requires Python 3, Pip 3 and libmysqlclient-dev to be installed.
@@ -14,9 +14,9 @@ Note that you may need to add the start script location (see pip output) to your
 # Usage
 Once installed, you can run the exporter with the `prometheus-mysql-exporter` command.
 
-By default, it will bind to port 9207, query MySQL on `localhost:3306` using the `root` user (with no password) and run queries configured in a file `exporter.cfg` in the working directory. There is no default database to run the queries on, so you must specify at least one. You can set the database(s) and change any defaults as required by passing in options:
+By default, it will bind to port 9207, query MySQL on `localhost:3306` using the `root` user (with no password) and run queries configured in a file `exporter.cfg` in the working directory. You can change any defaults or other settings as required by passing in options:
 ```
-> prometheus-mysql-exporter -p <port> -s <mysql server> -u <mysql username> -P <mysql password> -c <path to query config file> -d <mysql database(s)>
+> prometheus-mysql-exporter -p <port> -s <mysql server> -u <mysql username> -P <mysql password> -c <path to query config file>
 ```
 Run with the `-h` flag to see details on all the available options.
 
@@ -34,7 +34,7 @@ To run a container successfully, you will need to mount a query config file to `
 > sudo docker run --rm --name exporter \
     -v <path to query config file>:/usr/src/app/exporter.cfg \
     -p <host port>:9207 \
-    braedon/prometheus-mysql-exporter:<version> -s <mysql server> -d <mysql database(s)>
+    braedon/prometheus-mysql-exporter:<version> -s <mysql server>
 ```
 If you don't want to mount the query config file in at run time, you could extend an existing image with your own Dockerfile that copies the config file in at build time.
 
