@@ -16,7 +16,7 @@ Once installed, you can run the exporter with the `prometheus-mysql-exporter` co
 
 By default, it will bind to port 9207, query MySQL on `localhost:3306` using the `root` user (with no password) and run queries configured in a file `exporter.cfg` in the working directory. There is no default database to run the queries on, so you must specify at least one. You can set the database(s) and change any defaults as required by passing in options:
 ```
-> prometheus-mysql-exporter -p <port> -s <mysql server> -u <mysql username> -P <mysql password> -c <path to query config file> -d <mysql database(s)>
+> prometheus-mysql-exporter -p <port> -s <mysql server> -u <mysql username> -P <mysql password> -z <local timezone> -c <path to query config file> -d <mysql database(s)>
 ```
 Run with the `-h` flag to see details on all the available options.
 

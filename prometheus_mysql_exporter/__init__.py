@@ -97,6 +97,8 @@ def validate_server_address(ctx, param, address_string):
               help='MySQL user to run queries as. (default: root)')
 @click.option('--mysql-password', '-P', default='',
               help='Password for the MySQL user, if required. (default: no password)')
+@click.option('--mysql-local-timezone', '-z',
+              help='Local timezone for sql commands like NOW(). (default: use server timezone)')
 @click.option('--json-logging', '-j', default=False, is_flag=True,
               help='Turn on json logging.')
 @click.option('--log-level', default='INFO',
@@ -126,6 +128,7 @@ def cli(**options):
 
     username = options['mysql_user']
     password = options['mysql_password']
+    timezone = options['mysql_local_timezone']
 
     config = configparser.ConfigParser()
     config.read_file(options['config_file'])
@@ -147,11 +150,13 @@ def cli(**options):
 
     scheduler = sched.scheduler()
 
+    init_command = "set time_zone = '{}'".format(timezone) if timezone else ""
     mysql_client = MySQLdb.connect(host=mysql_host,
                                    port=mysql_port,
                                    user=username,
                                    passwd=password,
-                                   autocommit=True)
+                                   autocommit=True,
+                                   init_command=init_command)
 
     for name, (interval, query, value_columns) in queries.items():
         schedule_job(scheduler, interval,
