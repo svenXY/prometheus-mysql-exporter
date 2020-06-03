@@ -207,13 +207,14 @@ def cli(**options):
 
     scheduler = sched.scheduler()
 
-    init_command = "set time_zone = '{}'".format(timezone) if timezone else ""
-    mysql_client = MySQLdb.connect(host=mysql_host,
-                                   port=mysql_port,
-                                   user=username,
-                                   passwd=password,
-                                   autocommit=True,
-                                   init_command=init_command)
+    mysql_kwargs = dict(host=mysql_host,
+                        port=mysql_port,
+                        user=username,
+                        passwd=password,
+                        autocommit=True)
+    if timezone:
+        mysql_kwargs['init_command'] = "SET time_zone = '{}'".format(timezone)
+    mysql_client = MySQLdb.connect(**mysql_kwargs)
 
     if queries:
         for query_name, (interval, db_name, query, value_columns,
