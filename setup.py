@@ -32,6 +32,7 @@ setup(
     python_requires='>=3.5',
     install_requires=[
         'click',
+        'click-config-file',
         'jog',
         'mysqlclient',
         'prometheus-client >= 0.6.0',

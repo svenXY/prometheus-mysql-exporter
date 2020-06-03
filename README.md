@@ -24,6 +24,10 @@ Run with the `-h` flag to see details on all the available options.
 
 Note that all options can be set via environment variables. The environment variable names are prefixed with `MYSQL_EXPORTER`, e.g. `MYSQL_EXPORTER_MYSQL_USER=fred` is equivalent to `--mysql-user fred`. CLI options take precidence over environment variables.
 
+Command line options can also be set from a configuration file, by passing `--config FILE`. The format of the file should be [Configobj's unrepre mode](https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode), so instead of `--mysql-user fred` you could use a configuration file `config_file` with `mysql-user="fred"` in it, and pass `--config config_file`. CLI options and environment variables take precedence over configuration files.
+
+CLI options, environment variables, and configuration files all override any default options. The full resolution order for a given option is: CLI > Environment > Configuration file > Default.
+
 See the provided [exporter.cfg](exporter.cfg) file for query configuration examples and explanation.
 
 # Docker

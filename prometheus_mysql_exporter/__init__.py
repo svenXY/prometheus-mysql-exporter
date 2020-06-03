@@ -1,4 +1,5 @@
 import click
+import click_config_file
 import configparser
 import glob
 import logging
@@ -159,6 +160,7 @@ CONFIGPARSER_CONVERTERS = {
               help='Detail level to log. (default: INFO)')
 @click.option('--verbose', '-v', default=False, is_flag=True,
               help='Turn on verbose (DEBUG) logging. Overrides --log-level.')
+@click_config_file.configuration_option()
 def cli(**options):
     """Export MySQL query results to Prometheus."""
 
