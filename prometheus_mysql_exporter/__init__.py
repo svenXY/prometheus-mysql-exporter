@@ -193,7 +193,8 @@ def cli(**options):
     for section in config.sections():
         if section.startswith(query_prefix):
             query_name = section[len(query_prefix):]
-            interval = config.getfloat(section, 'QueryIntervalSecs')
+            interval = config.getfloat(section, 'QueryIntervalSecs',
+                                       fallback=15)
             db_name = config.get(section, 'QueryDatabase')
             query = config.get(section, 'QueryStatement')
             value_columns = config.get(section, 'QueryValueColumns').split(',')
