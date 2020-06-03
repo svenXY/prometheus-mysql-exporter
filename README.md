@@ -2,6 +2,8 @@ Prometheus MySQL Exporter
 ====
 This Prometheus exporter periodically runs configured queries against a MySQL server and exports the results as Prometheus gauge metrics.
 
+[Source Code](https://github.com/braedon/prometheus-mysql-exporter) | [Python Package](https://pypi.org/project/prometheus-mysql-exporter) | [Docker Image](https://hub.docker.com/r/braedon/prometheus-mysql-exporter)
+
 # Installation
 The exporter requires Python 3, Pip 3 and libmysqlclient-dev to be installed.
 

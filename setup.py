@@ -1,12 +1,20 @@
 from setuptools import setup, find_packages
+from os import path
+
+
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
     name='prometheus-mysql-exporter',
     version='0.3.0.dev1',
     description='MySQL query Prometheus exporter',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     url='https://github.com/braedon/prometheus-mysql-exporter',
     author='Braedon Vickers',
-    author_email='braedon.vickers@gmal.com',
+    author_email='braedon.vickers@gmail.com',
     license='MIT',
     classifiers=[
         'Development Status :: 4 - Beta',
