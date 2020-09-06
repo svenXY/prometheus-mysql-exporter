@@ -46,7 +46,7 @@ def run_query(mysql_client, query_name, db_name, query, value_columns,
 
         try:
             with conn.cursor() as cursor:
-                cursor.execute(f'USE `{db_name}`;')
+                cursor.execute('USE `{}`;'.format(db_name))
                 cursor.execute(query)
                 raw_response = cursor.fetchall()
                 columns = [column[0] for column in cursor.description]
