@@ -1,12 +1,5 @@
 FROM python:3.7-slim
 
-RUN apt-get update -q && \
-apt-get install -y --no-install-recommends \
-  build-essential \
-  default-libmysqlclient-dev && \
-apt-get clean -y && \
-rm -rf /var/lib/apt/lists/*
-
 WORKDIR /usr/src/app
 
 COPY setup.py /usr/src/app/

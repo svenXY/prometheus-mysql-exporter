@@ -5,7 +5,7 @@ This Prometheus exporter periodically runs configured queries against a MySQL se
 [Source Code](https://github.com/braedon/prometheus-mysql-exporter) | [Python Package](https://pypi.org/project/prometheus-mysql-exporter) | [Docker Image](https://hub.docker.com/r/braedon/prometheus-mysql-exporter)
 
 # Installation
-The exporter requires Python 3, Pip 3 and libmysqlclient-dev to be installed.
+The exporter requires Python 3 and Pip 3 to be installed.
 
 To install the latest published version via Pip, run:
 ```
