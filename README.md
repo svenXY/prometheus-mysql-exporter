@@ -2,7 +2,7 @@ Prometheus MySQL Exporter
 ====
 This Prometheus exporter periodically runs configured queries against a MySQL server and exports the results as Prometheus gauge metrics.
 
-[Source Code](https://github.com/braedon/prometheus-mysql-exporter) | [Python Package](https://pypi.org/project/prometheus-mysql-exporter) | [Docker Image](https://hub.docker.com/r/braedon/prometheus-mysql-exporter)
+[Source Code](https://github.com/braedon/prometheus-mysql-exporter) | [Python Package](https://pypi.org/project/prometheus-mysql-exporter) | [Docker Image](https://hub.docker.com/r/braedon/prometheus-mysql-exporter) | [Helm Chart](https://braedon.github.io/helm/prometheus-mysql-exporter)
 
 # Installation
 The exporter requires Python 3 and Pip 3 to be installed.
@@ -43,6 +43,18 @@ To run a container successfully, you will need to mount a query config file to `
     braedon/prometheus-mysql-exporter:<version> -s <mysql server>
 ```
 If you don't want to mount the query config file in at run time, you could extend an existing image with your own Dockerfile that copies the config file in at build time.
+
+# Helm
+A Helm chart is available from the Helm repo at [https://braedon.github.io/helm](https://braedon.github.io/helm/).
+```bash
+> helm repo add braedon https://braedon.github.com/helm
+> helm repo update
+
+> helm install braedon/prometheus-mysql-exporter --name <release name> \
+                                                 --set mysql.server=<mysql server address> \
+                                                 --set image.tag=<image tag>
+```
+See the [`prometheus-mysql-exporter` chart README](https://braedon.github.io/helm/prometheus-mysql-exporter/) for more details on how to configure the chart.
 
 # Development
 To install directly from the git repo, run the following in the root project directory:
