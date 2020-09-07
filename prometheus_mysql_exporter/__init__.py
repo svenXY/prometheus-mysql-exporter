@@ -4,9 +4,10 @@ import configparser
 import glob
 import logging
 import os
+import pymysql
 import sched
-import MySQLdb
 
+from DBUtils.PersistentDB import PersistentDB
 from jog import JogFormatter
 from prometheus_client import start_http_server
 from prometheus_client.core import REGISTRY
@@ -41,11 +42,17 @@ def run_query(mysql_client, query_name, db_name, query, value_columns,
               on_error, on_missing):
 
     try:
-        mysql_client.select_db(db_name)
-        with mysql_client.cursor() as cursor:
-            cursor.execute(query)
-            raw_response = cursor.fetchall()
-            columns = [column[0] for column in cursor.description]
+        conn = mysql_client.connection()
+
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute('USE `{}`;'.format(db_name))
+                cursor.execute(query)
+                raw_response = cursor.fetchall()
+                columns = [column[0] for column in cursor.description]
+
+        finally:
+            conn.close()
 
         response = [{column: row[i] for i, column in enumerate(columns)}
                     for row in raw_response]
@@ -213,11 +220,11 @@ def cli(**options):
     mysql_kwargs = dict(host=mysql_host,
                         port=mysql_port,
                         user=username,
-                        passwd=password,
-                        autocommit=True)
+                        password=password)
     if timezone:
         mysql_kwargs['init_command'] = "SET time_zone = '{}'".format(timezone)
-    mysql_client = MySQLdb.connect(**mysql_kwargs)
+
+    mysql_client = PersistentDB(creator=pymysql, **mysql_kwargs)
 
     if queries:
         for query_name, (interval, db_name, query, value_columns,
