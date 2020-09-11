@@ -220,7 +220,12 @@ def cli(**options):
     mysql_kwargs = dict(host=mysql_host,
                         port=mysql_port,
                         user=username,
-                        password=password)
+                        password=password,
+                        # Use autocommit mode to avoid keeping the same transaction across query
+                        # runs when the connection is reused. Using the same transaction would
+                        # prevent changes from being reflected in results, and therefore metrics.
+                        # Note: Queries could theoretically change data...
+                        autocommit=True)
     if timezone:
         mysql_kwargs['init_command'] = "SET time_zone = '{}'".format(timezone)
 
