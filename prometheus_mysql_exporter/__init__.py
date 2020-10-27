@@ -7,7 +7,7 @@ import os
 import pymysql
 import sched
 
-from DBUtils.PersistentDB import PersistentDB
+from dbutils.persistent_db import PersistentDB
 from jog import JogFormatter
 from prometheus_client import start_http_server
 from prometheus_client.core import REGISTRY

@@ -34,7 +34,7 @@ setup(
     install_requires=[
         'click',
         'click-config-file',
-        'DBUtils ~= 1.3',
+        'DBUtils ~= 2.0',
         'jog',
         'PyMySQL',
         'prometheus-client >= 0.6.0',
