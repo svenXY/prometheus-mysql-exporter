@@ -8,7 +8,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='prometheus-mysql-exporter',
-    version='0.4.1',
+    version='0.4.2',
     description='MySQL query Prometheus exporter',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -34,7 +34,7 @@ setup(
     install_requires=[
         'click',
         'click-config-file',
-        'DBUtils',
+        'DBUtils ~= 1.3',
         'jog',
         'PyMySQL',
         'prometheus-client >= 0.6.0',
