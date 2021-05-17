@@ -1,0 +1,17 @@
+
+stages:
+  - build
+
+Build Image:
+  stage: build
+  image:
+    name: ${CI_REGISTRY}/mythos/docker/kaniko:latest
+  script:
+    - export VERSION=0.4.2.1
+    - /kaniko/executor
+      --build-arg VERSION=${VERSION}
+      --cache=true
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}:${VERSION}"
+      --destination "${CI_REGISTRY_IMAGE}:latest"
