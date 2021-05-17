@@ -35,6 +35,7 @@ setup(
         'click',
         'click-config-file',
         'croniter',
+        'cryptography',
         'DBUtils ~= 1.3',
         'jog',
         'PyMySQL',
