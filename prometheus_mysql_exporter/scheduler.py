@@ -1,17 +1,16 @@
 import time
-from math import ceil
 import logging
-import pytz
+
 from croniter import croniter
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
 
-def schedule_job(scheduler, interval, cron, timezone, func, *args, **kwargs):
+def schedule_job(scheduler, interval, cron, cron_tz, func, *args, **kwargs):
     """
-    Schedule a function to be run on a fixed interval
-    or cron-based (croniter)
+    Schedule a function to be run at a fixed interval, or based on a
+    cron expression. Uses the croniter module for cron handling.
 
     Works with schedulers from the stdlib sched module.
     """
@@ -24,13 +23,18 @@ def schedule_job(scheduler, interval, cron, timezone, func, *args, **kwargs):
 
         current_time = time.monotonic()
         if cron:
-            next_scheduled_time = scheduled_time + cron_interval(cron, timezone)
-            log.debug('next cron based run at: %s seconds from now', ceil(next_scheduled_time - current_time))
+            delay = calc_cron_delay(cron, cron_tz)
+            # Assume the current_dt used by calc_cron_delay() represents the
+            # same instant as current_time. Should be approximately true.
+            next_scheduled_time = current_time + delay
+            log.debug('Next cron based run in %(delay_s).2fs.',
+                      {'delay_s': delay})
         else:
             next_scheduled_time = scheduled_time + interval
             while next_scheduled_time < current_time:
                 next_scheduled_time += interval
-            log.debug('next interval based run at: %s seconds from now', ceil(next_scheduled_time - current_time))
+            log.debug('Next interval based run in %(delay_s).2fs.',
+                      {'delay_s': next_scheduled_time - current_time})
 
         scheduler.enterabs(time=next_scheduled_time,
                            priority=1,
@@ -45,20 +49,20 @@ def schedule_job(scheduler, interval, cron, timezone, func, *args, **kwargs):
                        argument=(next_scheduled_time, *args),
                        kwargs=kwargs)
 
-def cron_interval(cronstring, timezone):
+
+def calc_cron_delay(cron, cron_tz):
     """
-    Return seconds until the next cron run time by parsing
-    a cron string. Uses the croniter module
+    Return seconds until the next cron run time by parsing a cron
+    expression. Uses the croniter module for cron handling.
     """
-    if timezone:
-        tz = pytz.timezone(timezone)
-        local_date = tz.localize(datetime.now())
-    else:
-        local_date = datetime.now().astimezone()
-    interval = 0
-    crony = croniter(cronstring, local_date)
-    while interval < 1:
-        next_dt = crony.get_next(datetime)
-        interval = (next_dt - local_date).total_seconds()
-    log.debug('cron_tick: %s', ceil(interval))
-    return ceil(interval)
+
+    current_dt = datetime.now(timezone.utc)
+    if cron_tz:
+        current_dt = current_dt.astimezone(cron_tz)
+
+    next_dt = croniter(cron, current_dt).get_next(datetime)
+
+    delay = (next_dt - current_dt).total_seconds()
+    assert delay > 0, 'Cron delay should be positive.'
+
+    return delay
