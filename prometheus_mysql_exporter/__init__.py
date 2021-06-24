@@ -5,6 +5,7 @@ import glob
 import logging
 import os
 import pymysql
+import pytz
 import sched
 
 from dbutils.persistent_db import PersistentDB
@@ -41,6 +42,7 @@ class QueryMetricCollector(object):
 def run_query(mysql_client, query_name, db_name, query, value_columns,
               on_error, on_missing):
 
+    log.debug('Running query %(query_name)s.', {'query_name': query_name})
     try:
         conn = mysql_client.connection()
 
@@ -186,9 +188,9 @@ def cli(**options):
     port = options['port']
     mysql_host, mysql_port = options['mysql_server']
 
-    username = options['mysql_user']
-    password = options['mysql_password']
-    timezone = options['mysql_local_timezone']
+    mysql_username = options['mysql_user']
+    mysql_password = options['mysql_password']
+    mysql_timezone = options['mysql_local_timezone']
 
     config = configparser.ConfigParser(converters=CONFIGPARSER_CONVERTERS)
     config.read_file(options['config_file'])
@@ -204,6 +206,12 @@ def cli(**options):
             query_name = section[len(query_prefix):]
             interval = config.getfloat(section, 'QueryIntervalSecs',
                                        fallback=15)
+            cron = config.get(section, 'QueryCron',
+                              fallback=None)
+            cron_tz = config.get(section, 'QueryCronTimezone',
+                                 fallback=None)
+            if cron_tz is not None:
+                cron_tz = pytz.timezone(cron_tz)
             db_name = config.get(section, 'QueryDatabase')
             query = config.get(section, 'QueryStatement')
             value_columns = config.get(section, 'QueryValueColumns').split(',')
@@ -212,29 +220,31 @@ def cli(**options):
             on_missing = config.getenum(section, 'QueryOnMissing',
                                         fallback='drop')
 
-            queries[query_name] = (interval, db_name, query, value_columns,
+            queries[query_name] = (interval, cron, cron_tz,
+                                   db_name, query, value_columns,
                                    on_error, on_missing)
 
     scheduler = sched.scheduler()
 
     mysql_kwargs = dict(host=mysql_host,
                         port=mysql_port,
-                        user=username,
-                        password=password,
+                        user=mysql_username,
+                        password=mysql_password,
                         # Use autocommit mode to avoid keeping the same transaction across query
                         # runs when the connection is reused. Using the same transaction would
                         # prevent changes from being reflected in results, and therefore metrics.
                         # Note: Queries could theoretically change data...
                         autocommit=True)
-    if timezone:
-        mysql_kwargs['init_command'] = "SET time_zone = '{}'".format(timezone)
+    if mysql_timezone:
+        mysql_kwargs['init_command'] = "SET time_zone = '{}'".format(mysql_timezone)
 
     mysql_client = PersistentDB(creator=pymysql, **mysql_kwargs)
 
     if queries:
-        for query_name, (interval, db_name, query, value_columns,
+        for query_name, (interval, cron, cron_tz,
+                         db_name, query, value_columns,
                          on_error, on_missing) in queries.items():
-            schedule_job(scheduler, interval,
+            schedule_job(scheduler, interval, cron, cron_tz,
                          run_query, mysql_client, query_name,
                          db_name, query, value_columns, on_error, on_missing)
     else:
