@@ -1,18 +1,155 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
 
 stages:
   - build
+  - test
+  - publish
 
-Build Image:
+Build test Image:
+  extends: .build_image
   stage: build
-  image:
-    name: ${CI_REGISTRY}/mythos/docker/kaniko:latest
+  rules:
+    - !reference [ .rules_no_breaking_nameschema, rules ]
+    - when: always
+  variables:
+    REGISTRY_TAGS: '${CI_REGISTRY_IMAGE}:testing'
+
+Snyk Test:
+  image: dockerhub-remote.rtf.dm-drogeriemarkt.com/python:3.13-alpine
+  # image: dockerhub-remote.rtf.dm-drogeriemarkt.com/python
+  environment: buildtest
+  stage: test
+  rules:
+    - !reference [ .rules_no_breaking_nameschema, rules ]
+    - when: always
+  extends:
+    - .get_snyk_binary
   script:
-    - export VERSION=0.4.2.1
-    - /kaniko/executor
-      --build-arg VERSION=${VERSION}
-      --cache=true
-      --context "${CI_PROJECT_DIR}"
-      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}:${VERSION}"
-      --destination "${CI_REGISTRY_IMAGE}:latest"
-      --registry-mirror ptc.gitlab-prod.awsint.dmtech.cloud
+    - python3 -m pip install setuptools
+    - python3 -m pip install -r requirements.txt
+    - snyk config set org=cali
+    - snyk auth ${SNYK_TOKEN} 
+    - snyk test --command=python3 --file=setup.py --print-deps
+
+Test Container:
+  environment: buildtest
+  stage: test
+  rules:
+    - when: always
+  tags:
+    # This tag is essential, as buildkit will currently only be able to run
+    # on privileged gitlab runners. For details, see https://bit.ly/3gtXNu1
+    - dockerbuild
+  interruptible: true
+  script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
+  - docker pull ${CI_REGISTRY_IMAGE}:testing
+  - container-structure-test test --image ${CI_REGISTRY_IMAGE}:testing --config cst-config.yml
+  - snyk config set org=cali
+  - snyk auth ${SNYK_TOKEN} 
+  - snyk container test ${CI_REGISTRY_IMAGE}:testing --severity-threshold=medium 
+  image: registry.gitlab.dm-drogeriemarkt.com/cali/ops/docker-images/wac_docker:latest
+
+Build dev Image:
+  stage: publish
+  variables:
+    REGISTRY_TAGS: '${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}'
+  rules:
+    - !reference [ .rules_no_breaking_nameschema, rules ]
+    - !reference [ .rules_no_renovate, rules ]
+    - !reference [ .rules_feature, rules ]
+    - when: never
+  extends: .build_image
+
+Build prod Image:
+  environment: prod
+  stage: publish
+  variables:
+    REGISTRY_TAGS: '${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA},${CI_REGISTRY_IMAGE}:latest'
+  rules:
+    - !reference [ .rules_no_breaking_nameschema, rules ]
+    - !reference [ .rules_no_renovate, rules ]
+    - !reference [ .rules_main_hotfix, rules ]
+    - when: never
+  extends: .build_image
+
+.build_image:
+  image: registry.gitlab.dm-drogeriemarkt.com/mythos/docker/buildkit:latest
+  tags:
+    # This tag is essential, as buildkit will currently only be able to run
+    # on privileged gitlab runners. For details, see https://bit.ly/3gtXNu1
+    - dockerbuild
+  interruptible: true
+  script:
+  - buildctl-daemonless.sh build
+    --frontend=dockerfile.v0
+    --opt "filename=Dockerfile"
+    --local "context=${CI_PROJECT_DIR}"
+    --local "dockerfile=${CI_PROJECT_DIR}"
+    --import-cache "type=registry,mode=max,ref=${CI_REGISTRY_IMAGE}:buildcache"
+    --export-cache "type=registry,mode=max,ref=${CI_REGISTRY_IMAGE}:buildcache"
+    --output "type=image,\"name=${REGISTRY_TAGS}\",push=true"
+
+.get_snyk_binary:
+  before_script:
+    - apk add libc6-compat libstdc++
+    - wget -q -O snyk https://static.snyk.io/cli/latest/snyk-linux
+    - chmod +x ./snyk
+    - cp snyk /usr/local/bin/snyk
+    - ls -la /usr/local/bin/snyk
+    - snyk --version || true
+    - echo $PATH
+
+.rules_no_breaking_nameschema:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME !~ /^(main|feature|next|hotfix|renovate)/'
+      when: never
+
+.rules_no_renovate:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /^renovate\//'
+      when: never
+
+.rules_main:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+      when: on_success
+
+.rules_main_hotfix:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+      when: on_success
+    - if: '$CI_COMMIT_REF_NAME =~ /^hotfix\//'
+      when: on_success
+
+.rules_feature:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /^feature\//'
+      when: on_success
+
+.default_tags:
+  tags:
+    - aws
+    - shared
+
+# Build Image:
+#   stage: build
+#   image:
+#     name: ${CI_REGISTRY}/mythos/docker/kaniko:latest
+#   script:
+#     - export VERSION=0.4.2.1
+#     - /kaniko/executor
+#       --build-arg VERSION=${VERSION}
+#       --cache=true
+#       --context "${CI_PROJECT_DIR}"
+#       --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+#       --destination "${CI_REGISTRY_IMAGE}:${VERSION}"
+#       --destination "${CI_REGISTRY_IMAGE}:latest"
+#       --registry-mirror ptc.gitlab-prod.awsint.dmtech.cloud
